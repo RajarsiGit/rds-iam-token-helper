@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RDS IAM Token</title>
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body class="popup">
+  <header>
+    <h1>RDS IAM Token</h1>
+    <span id="status" class="pill">No credentials</span>
+  </header>
+
+  <section id="credCard" class="card">
+    <div class="row"><span class="k">Account</span><span id="account" class="v">-</span></div>
+    <div class="row"><span class="k">Role</span><span id="role" class="v">-</span></div>
+    <div class="row"><span class="k">Credentials expire</span><span id="expiry" class="v">-</span></div>
+  </section>
+
+  <section id="rolePicker" class="card" hidden>
+    <p class="hint">Your sign-in lists several roles. Pick one:</p>
+    <select id="roleSelect"></select>
+    <button id="assumeBtn" class="secondary">Use this role</button>
+  </section>
+
+  <section id="empty" class="card hint" hidden>
+    Log in through your AWS portal and click a role. The account and credentials are captured automatically.
+  </section>
+
+  <section id="generate">
+    <label for="recent" id="recentLabel" hidden>Recent connections (this account)</label>
+    <select id="recent" hidden></select>
+
+    <label for="region">Region</label>
+    <select id="region"></select>
+
+    <label for="host">Database / proxy endpoint</label>
+    <select id="host"></select>
+    <input id="hostManual" hidden autocomplete="off" spellcheck="false" placeholder="mydb.cluster-abc.us-east-1.rds.amazonaws.com" />
+    <div id="hostHint" class="hint"></div>
+    <button id="findBtn" type="button" class="secondary small">Find databases in this account &amp; region</button>
+
+    <div class="two">
+      <div><label for="port">Port</label><input id="port" type="number" min="1" max="65535" value="5432" /></div>
+      <div><label for="user">DB user</label><input id="user" autocomplete="off" spellcheck="false" placeholder="iam_user" /></div>
+    </div>
+
+    <button id="genBtn">Generate &amp; copy token</button>
+    <textarea id="token" rows="4" readonly placeholder="Token appears here"></textarea>
+    <div id="tokenMeta" class="hint"></div>
+  </section>
+
+  <details>
+    <summary>Paste credentials manually (fallback)</summary>
+    <p class="hint">Only needed if automatic capture did not run, for example if you were already logged in when the extension was installed. Paste the AWS file, Bash or PowerShell block from CloudKeeper.</p>
+    <textarea id="paste" rows="4" placeholder="[default]&#10;aws_access_key_id = ...&#10;aws_secret_access_key = ...&#10;aws_session_token = ..."></textarea>
+    <button id="pasteBtn" class="secondary">Use these credentials</button>
+  </details>
+
+  <div id="msg" class="msg" role="status"></div>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
