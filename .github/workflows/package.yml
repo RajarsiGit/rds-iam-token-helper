@@ -1,0 +1,83 @@
+# Tests the extension and packages it as a Chrome Web Store zip and a signed .crx.
+# Every push uploads both as a workflow artifact; pushing a v* tag also attaches
+# them to a GitHub release.
+#
+# The .crx is signed with the CRX_PRIVATE_KEY repository secret (PEM). The key
+# fixes the extension ID, so keep using the same one. Without it, only the zip is built.
+
+name: Package extension
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22 # jsdom and crx3 need Node 22+
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+
+      - name: Check manifest.json is up to date
+        run: |
+          node scripts/gen-manifest.mjs
+          git diff --exit-code manifest.json
+
+      - name: Build zip
+        id: zip
+        run: |
+          version=$(node -p "require('./manifest.json').version")
+          name="rds-iam-token-helper-${version}"
+          mkdir -p dist/stage
+          # Only what the extension loads at runtime.
+          cp -r manifest.json background.js styles.css lib popup icons dist/stage/
+          (cd dist/stage && zip -r -X -9 "../${name}.zip" .)
+          echo "name=${name}" >> "$GITHUB_OUTPUT"
+
+      - name: Build signed crx
+        env:
+          CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
+        run: |
+          if [ -z "$CRX_PRIVATE_KEY" ]; then
+            echo "::warning::CRX_PRIVATE_KEY secret is not set; skipping the .crx build."
+            exit 0
+          fi
+          key="$RUNNER_TEMP/key.pem"
+          printf '%s\n' "$CRX_PRIVATE_KEY" > "$key"
+          name="${{ steps.zip.outputs.name }}"
+          npx --yes crx3@2.0.0 -p "$key" -o "dist/${name}.crx" < "dist/${name}.zip"
+          rm -f "$key"
+          test "$(head -c 4 "dist/${name}.crx")" = "Cr24"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.zip.outputs.name }}
+          path: |
+            dist/*.zip
+            dist/*.crx
+          if-no-files-found: error
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p "require('./manifest.json').version")
+          if [ "${GITHUB_REF_NAME#v}" != "$version" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match manifest version ${version}"
+            exit 1
+          fi
+          shopt -s nullglob
+          gh release create "$GITHUB_REF_NAME" dist/*.zip dist/*.crx --title "$GITHUB_REF_NAME" --generate-notes

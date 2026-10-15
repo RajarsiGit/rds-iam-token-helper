@@ -16,7 +16,11 @@ node scripts/gen-manifest.mjs     # regenerate manifest.json (required after edi
 python3 scripts/make-icons.py     # redraw icons/*.png (needs numpy + Pillow)
 ```
 
-The tests are plain Node scripts that use `node:assert/strict`, with no test framework. A failed assertion throws and stops that file.
+The tests are plain Node scripts that use `node:assert/strict`, with no test framework. A failed assertion throws and stops that file. They need **Node 22+**: jsdom (`popup.test.mjs`) fails on Node 20.
+
+## Packaging
+
+`.github/workflows/package.yml` runs on every push. It runs the tests, checks that `manifest.json` matches `gen-manifest.mjs` output, zips only the runtime files (`manifest.json background.js styles.css lib popup icons`), and signs a `.crx` with `npx crx3@2.0.0` using the `CRX_PRIVATE_KEY` secret. The CRX step is skipped if that secret is missing. The zip and `.crx` are uploaded as a workflow artifact. A `v<version>` tag also creates a GitHub release, and the tag must match the manifest version. If you add a new top-level runtime file, add it to the workflow's `cp` line.
 
 ## Architecture
 
